@@ -38,12 +38,12 @@ import { h, ref } from 'vue'
 import { Head, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { type BreadcrumbItem } from '@/types'
-import DropdownAction from './DataTableDemoColumn.vue'
+import DropdownAction from './DataTableDemoColumn.vue'  // Add DropdownAction import here
 import PlaceholderPattern from '../../components/PlaceholderPattern.vue'
 
 // Breadcrumbs
 const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Dashboard', href: '/dashboard' },
+  { title: 'Data Siswa', href: '/siswa' },
 ]
 
 // Dapetin props dari Inertia
@@ -119,6 +119,17 @@ const columns = [
     header: 'Tanggungan',
     cell: ({ row }) => h('div', { class: 'text-center' }, row.getValue('tanggungan')),
   }),
+  {
+    id: 'actions',
+    enableHiding: false,
+    cell: ({ row }) => {
+      const siswaData = row.original
+      return h(DropdownAction, {
+        siswa: siswaData,
+        onExpand: row.toggleExpanded,
+      })
+    },
+  }
 ]
 
 const sorting = ref<SortingState>([])
@@ -146,9 +157,6 @@ const table = useVueTable({
     get columnVisibility() { return columnVisibility.value },
     get rowSelection() { return rowSelection.value },
     get expanded() { return expanded.value },
-    columnPinning: {
-      left: ['nama_siswa'],
-    },
   },
 })
 </script>

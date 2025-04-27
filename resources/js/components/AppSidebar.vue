@@ -16,7 +16,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Data Siswa',
-        href: '#',
+        href: '/siswa',
         icon: GraduationCap,
     },
     {
