@@ -16,7 +16,7 @@ Route::middleware(['auth','verified'])->group(function () {
 
     // Siswa Routes
     Route::resource('siswa', SiswaController::class);
-    Route::delete('/siswa-batch', [SiswaController::class, 'batchDestroy']);
+    Route::delete('/siswa-batch', [SiswaController::class, 'batchDelete']);
 
 });
 

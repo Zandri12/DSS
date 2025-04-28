@@ -8,6 +8,7 @@ import type {
 import { cn, valueUpdater } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Textarea } from '@/components/ui/textarea'
 import StudentFormDialog from '@/components/StudentFormDialog.vue'
 import { Plus, Trash } from 'lucide-vue-next'  
 import {
@@ -169,6 +170,7 @@ const table = useVueTable({
   },
 })
 
+import Swal from 'sweetalert2'
 
 
 const showDialog = ref(false)
@@ -213,11 +215,23 @@ const confirmBatchDelete = async () => {
     await axios.delete('/siswa-batch', {
       data: { ids: selectedIdsToDelete.value }
     })
-    alert('Data berhasil dihapus!')
+    Swal.fire({
+    icon: 'info',
+    title: 'Data berhasil dihapus',
+    text: 'Data yang terpilih telah berhasil dihapus.',
+    timer: 2000,
+    confirmButtonText: 'OK'
+  })
     reloadPage()
   } catch (error) {
     console.error(error)
-    alert('Gagal menghapus data.')
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal menghapus data',
+      text: 'Terjadi kesalahan saat menghapus data yang terpilih.',
+      timer: 2000,
+      confirmButtonText: 'OK'
+    })
   }
 
   showConfirmDialog.value = false  // Menutup modal setelah aksi selesai
@@ -249,7 +263,7 @@ const confirmBatchDelete = async () => {
           </div>
           <Button @click="openCreate" class="ml-2 flex items-center gap-2">
             <Plus class="w-4 h-4 text-white" />
-            Tambah Data
+            Tambah
           </Button>
           <Button
             variant="destructive"
@@ -257,7 +271,7 @@ const confirmBatchDelete = async () => {
             @click="handleBatchDelete"
           >
             <Trash class="w-4 h-4 text-white" />
-            Hapus Terpilih
+            Hapus
           </Button>
           <Input
             class="max-w-sm"
@@ -357,6 +371,7 @@ const confirmBatchDelete = async () => {
     </div>
   </AppLayout>
 </template>
+
 <style scoped>
 /* Modal styles */
 .fixed {

@@ -75,16 +75,17 @@ class SiswaController extends Controller
     
         return response()->json(['message' => 'Data siswa berhasil dihapus!']);
     }
-    
-    public function batchDestroy(Request $request)
+
+    public function batchDelete(Request $request)
     {
-        $validated = $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer|exists:siswas,id',
-        ]);
+        $ids = $request->input('ids');
 
-        Siswa::whereIn('id', $validated['ids'])->delete();
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['message' => 'ID tidak valid.'], 400);
+        }
 
-        return response()->json(['message' => 'Data siswa terpilih berhasil dihapus!']);
+        Siswa::whereIn('id', $ids)->delete();
+
+        return response()->json(['message' => 'Data berhasil dihapus.']);
     }
 }
