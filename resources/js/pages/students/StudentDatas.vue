@@ -122,7 +122,7 @@ const columns = [
   {
     id: 'actions',
     enableHiding: false,
-    cell: ({ row }) => {
+    cell: ({ row }: { row: { original: Siswa; toggleExpanded: () => void } }) => {
       const siswaData = row.original
       return h(DropdownAction, {
         siswa: siswaData,
