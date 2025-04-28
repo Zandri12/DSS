@@ -27,14 +27,21 @@ class SiswaController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'nama' => 'required',
-            'nis' => 'required',
-            'alamat' => 'nullable',
-            'kelas' => 'nullable',
+        $validated = $request->validate([
+            'nama_siswa' => 'required|string',
+            'nisn' => 'required|string',
+            'kelas' => 'required|string',
+            'alamat' => 'required|string',
+            'penghasilan' => 'required|numeric',
+            'prestasi' => 'nullable|string',
+            'nilai_rapor' => 'required|numeric',
+            'status' => 'required|string',
+            'tanggungan' => 'required|numeric',
         ]);
-        $siswa = Siswa::create($data);
-        return response()->json($siswa, 201);
+
+        Siswa::create($validated);
+
+        return response()->json(['message' => 'Data siswa berhasil disimpan!']);
     }
 
     public function show(Siswa $siswa)
@@ -42,26 +49,42 @@ class SiswaController extends Controller
         return response()->json($siswa);
     }
 
-    public function edit(Siswa $siswa)
+    public function update(Request $request, $id)
     {
-        // Untuk Inertia atau view jika diperlukan
-    }
-
-    public function update(Request $request, Siswa $siswa)
-    {
-        $data = $request->validate([
-            'nama' => 'required',
-            'nis' => 'required',
-            'alamat' => 'nullable',
-            'kelas' => 'nullable',
+        $validated = $request->validate([
+            'nama_siswa' => 'required|string',
+            'nisn' => 'required|string',
+            'kelas' => 'required|string',
+            'alamat' => 'required|string',
+            'penghasilan' => 'required|numeric',
+            'prestasi' => 'nullable|string',
+            'nilai_rapor' => 'required|numeric',
+            'status' => 'required|string',
+            'tanggungan' => 'required|numeric',
         ]);
-        $siswa->update($data);
-        return response()->json($siswa);
-    }
 
-    public function destroy(Siswa $siswa)
+        $siswa = Siswa::findOrFail($id);
+        $siswa->update($validated);
+
+        return response()->json(['message' => 'Data siswa berhasil diupdate!']);
+    }
+    public function destroy($id)
     {
+        $siswa = Siswa::findOrFail($id);
         $siswa->delete();
-        return response()->json(null, 204);
+    
+        return response()->json(['message' => 'Data siswa berhasil dihapus!']);
+    }
+    
+    public function batchDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:siswas,id',
+        ]);
+
+        Siswa::whereIn('id', $validated['ids'])->delete();
+
+        return response()->json(['message' => 'Data siswa terpilih berhasil dihapus!']);
     }
 }

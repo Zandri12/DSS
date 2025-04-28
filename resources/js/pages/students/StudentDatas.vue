@@ -8,6 +8,8 @@ import type {
 import { cn, valueUpdater } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import StudentFormDialog from '@/components/StudentFormDialog.vue'
+import { Plus, Trash } from 'lucide-vue-next'  
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -40,6 +42,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import { type BreadcrumbItem } from '@/types'
 import DropdownAction from './DataTableDemoColumn.vue'  // Add DropdownAction import here
 import PlaceholderPattern from '../../components/PlaceholderPattern.vue'
+import axios from 'axios'
 
 // Breadcrumbs
 const breadcrumbs: BreadcrumbItem[] = [
@@ -122,13 +125,19 @@ const columns = [
   {
     id: 'actions',
     enableHiding: false,
-    cell: ({ row }: { row: { original: Siswa; toggleExpanded: () => void } }) => {
-      const siswaData = row.original
-      return h(DropdownAction, {
-        siswa: siswaData,
-        onExpand: row.toggleExpanded,
-      })
-    },
+    cell: ({ row }: { row: { original: Siswa } }) => {
+  const siswaData = row.original
+  return h(DropdownAction, {
+    siswa: siswaData,
+    onEdit: openEdit,
+    onDelete: async (id: number) => {
+      if (confirm('Yakin mau hapus?')) {
+        await axios.delete(`/siswa/${id}`)
+        reloadPage()
+      }
+    }
+  })
+},
   }
 ]
 
@@ -159,15 +168,97 @@ const table = useVueTable({
     get expanded() { return expanded.value },
   },
 })
+
+
+
+const showDialog = ref(false)
+const editingSiswa = ref<Siswa | null>(null)
+
+const openCreate = () => {
+  editingSiswa.value = null
+  showDialog.value = true
+}
+
+const openEdit = (siswa: Siswa) => {
+  editingSiswa.value = siswa
+  showDialog.value = true
+}
+
+const reloadPage = () => {
+  window.location.reload()
+}
+
+
+const showConfirmDialog = ref(false)
+const selectedIdsToDelete = ref<number[]>([])
+  const handleBatchDelete = () => {
+  const selectedRowIds = Object.keys(table.getState().rowSelection)
+
+  // Ambil ID siswa berdasarkan selected row
+  const selectedIds = selectedRowIds.map(rowId => {
+    const row = table.getRowModel().rows.find(r => r.id === rowId)
+    return row?.original.id
+  }).filter(id => id !== undefined)
+
+  if (selectedIds.length === 0) {
+    alert('Tidak ada data yang dipilih.')
+    return
+  }
+
+  selectedIdsToDelete.value = selectedIds
+  showConfirmDialog.value = true
+}
+const confirmBatchDelete = async () => {
+  try {
+    await axios.delete('/siswa-batch', {
+      data: { ids: selectedIdsToDelete.value }
+    })
+    alert('Data berhasil dihapus!')
+    reloadPage()
+  } catch (error) {
+    console.error(error)
+    alert('Gagal menghapus data.')
+  }
+
+  showConfirmDialog.value = false  // Menutup modal setelah aksi selesai
+}
+
 </script>
 
 <template>
   <Head title="Data Siswa" />
 
+  <StudentFormDialog
+    v-model="showDialog"
+    :siswaData="editingSiswa"
+    @saved="reloadPage"
+  />
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
       <div class="w-full">
         <div class="flex gap-2 items-center py-4">
+          <div v-if="showConfirmDialog" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+              <h3 class="text-xl font-bold mb-4">Konfirmasi Penghapusan</h3>
+              <p>Anda yakin ingin menghapus data yang terpilih?</p>
+              <div class="flex justify-end gap-2 mt-4">
+                <Button variant="outline" @click="showConfirmDialog = false">Batal</Button>
+                <Button variant="destructive" @click="confirmBatchDelete">Hapus</Button>
+              </div>
+            </div>
+          </div>
+          <Button @click="openCreate" class="ml-2 flex items-center gap-2">
+            <Plus class="w-4 h-4 text-white" />
+            Tambah Data
+          </Button>
+          <Button
+            variant="destructive"
+            :disabled="!Object.keys(table.getState().rowSelection).length"
+            @click="handleBatchDelete"
+          >
+            <Trash class="w-4 h-4 text-white" />
+            Hapus Terpilih
+          </Button>
           <Input
             class="max-w-sm"
             placeholder="Filter Nama Siswa..."
@@ -266,3 +357,20 @@ const table = useVueTable({
     </div>
   </AppLayout>
 </template>
+<style scoped>
+/* Modal styles */
+.fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.bg-opacity-50 {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.z-50 {
+  z-index: 50;
+}
+</style>
+

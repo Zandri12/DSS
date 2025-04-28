@@ -4,16 +4,21 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Button } from '@/components/ui/button'
 
 const props = defineProps({
-    payment: Object,
-    onEdit: Function,
+  siswa: Object,    // sebelumnya payment, ubah ke siswa
+  onEdit: Function,
+  onDelete: Function,
 })
 
-
-
-
-const edit = (id) => {
-    props.onEdit(id);
+const edit = () => {
+  props.onEdit(props.siswa)
 }
+
+const del = () => {
+  if (confirm('Yakin mau hapus data ini?')) {
+    props.onDelete(props.siswa.id)
+  }
+}
+
 
 
 </script>
@@ -28,10 +33,12 @@ const edit = (id) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem @click="edit(payment.id)">
-                Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem>Delete</DropdownMenuItem>
+            <DropdownMenuItem @click="edit">
+  Edit
+</DropdownMenuItem>
+<DropdownMenuItem @click="del">
+  Delete
+</DropdownMenuItem>
         </DropdownMenuContent>
     </DropdownMenu>
 </template>

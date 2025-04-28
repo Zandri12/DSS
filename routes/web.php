@@ -13,7 +13,11 @@ Route::middleware(['auth','verified'])->group(function () {
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
+
+    // Siswa Routes
     Route::resource('siswa', SiswaController::class);
+    Route::delete('/siswa-batch', [SiswaController::class, 'batchDestroy']);
+
 });
 
 require __DIR__.'/settings.php';
