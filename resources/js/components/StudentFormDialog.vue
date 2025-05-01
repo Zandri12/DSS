@@ -171,7 +171,7 @@ const submit = async () => {
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm text-muted-foreground font-medium">Penghasilan</label>
+          <label class="text-sm text-muted-foreground font-medium">Penghasilan Orang Tua</label>
           <Input v-model.number="form.penghasilan" placeholder="Penghasilan orang tua" type="number" />
         </div>
 
