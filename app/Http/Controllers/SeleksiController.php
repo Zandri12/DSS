@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 use Inertia\Inertia;
 use App\Models\Siswa;
+use App\Models\Kriteria;
 use App\Models\HasilVikor;
 
 use Illuminate\Http\Request;
@@ -12,11 +13,19 @@ class SeleksiController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $siswa = Siswa::all();
-        return inertia('seleksi/PerhitunganSeleksi');
+        $kriteria = Kriteria::all();
+
+        if ($request->wantsJson()) {
+            return response()->json($kriteria);
+        }
+
+        return Inertia::render('seleksi/PerhitunganSeleksi', [
+            'kriteria' => $kriteria
+        ]);
     }
+
 
     /**
      * Show the form for creating a new resource.

@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import StudentFormDialog from '@/components/StudentFormDialog.vue'
-import { Badge } from '@/components/ui/badge'
 import { Plus, Trash, ChevronDown, ChevronsUpDown } from 'lucide-vue-next'
 import {
   DropdownMenu,
@@ -108,19 +107,9 @@ const columns = [
     cell: info => h('div', { class: 'text-center' }, info.getValue()),
   }),
   columnHelper.accessor('status', {
-  header: 'Status',
-  cell: info => {
-    const value = info.getValue()
-    let colorClass = ''
-
-    if (value === 'Diterima') colorClass = 'text-green-600'
-    else if (value === 'Diproses') colorClass = 'text-yellow-600'
-    else if (value === 'Tidak Diterima') colorClass = 'text-red-600'
-
-    return h(Badge, { variant: 'outline', class: `capitalize ${colorClass}` }, () => value)
-  },
-}),
-
+    header: 'Status',
+    cell: info => h('div', { class: 'capitalize' }, info.getValue()),
+  }),
   columnHelper.accessor('tanggungan', {
     header: 'Tanggungan',
     cell: info => h('div', { class: 'text-center' }, info.getValue()),
@@ -261,50 +250,15 @@ const showConfirmDialog = ref(false)
 const selectedIdsToDelete = ref<number[]>([])
 
 const handleBatchDelete = () => {
-  const selectedRows = table.getSelectedRowModel().rows
-  const selectedIds = selectedRows.map(row => row.original.id)
+  const selectedIds = Object.keys(table.getState().rowSelection).map(id => {
+    return table.getRowModel().rows.find(r => r.id === id)?.original.id
+  }).filter(Boolean) as number[]
 
-  if (!selectedIds.length) {
-    alert('Tidak ada data yang dipilih.')
-    return
-  }
+  if (!selectedIds.length) return alert('Tidak ada data yang dipilih.')
 
   selectedIdsToDelete.value = selectedIds
   showConfirmDialog.value = true
-
-  // Tambahkan konfirmasi penghapusan di sini kalau kamu ingin langsung delete:
-  Swal.fire({
-    title: 'Yakin ingin menghapus?',
-    text: `Data terpilih (${selectedIds.length}) akan dihapus!`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#aaa',
-    confirmButtonText: 'Ya, hapus',
-    cancelButtonText: 'Batal',
-  }).then(async result => {
-    if (result.isConfirmed) {
-      try {
-        await Promise.all(selectedIds.map(id => axios.delete(`/siswa/${id}`)))
-        await Swal.fire({
-          icon: 'success',
-          title: 'Berhasil',
-          text: 'Data terpilih berhasil dihapus.',
-          timer: 1500,
-          showConfirmButton: false,
-        })
-        reloadPage()
-      } catch (e) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Gagal',
-          text: 'Terjadi kesalahan saat menghapus data.',
-        })
-      }
-    }
-  })
 }
-
 
 
 
