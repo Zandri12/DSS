@@ -21,7 +21,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Seleksi',
-        href: '#',
+        href: '/seleksi',
         icon: ListCheck,
     },
     {
