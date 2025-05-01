@@ -78,6 +78,8 @@ watch(() => props.siswaData, (newData) => {
   }
 })
 
+
+
 // Submit form
 const submit = async () => {
   try {
@@ -90,7 +92,7 @@ const submit = async () => {
       icon: 'success',
       title: 'Berhasil!',
       text: `Data siswa berhasil ${form.value.id ? 'diperbarui' : 'ditambahkan'}.`,
-      timer: 2000,
+      timer: 3000,
       showConfirmButton: false,
     })
     emit('saved')

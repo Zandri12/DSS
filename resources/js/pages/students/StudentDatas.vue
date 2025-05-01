@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import StudentFormDialog from '@/components/StudentFormDialog.vue'
+import { Badge } from '@/components/ui/badge'
 import { Plus, Trash, ChevronDown, ChevronsUpDown } from 'lucide-vue-next'
 import {
   DropdownMenu,
@@ -107,9 +108,19 @@ const columns = [
     cell: info => h('div', { class: 'text-center' }, info.getValue()),
   }),
   columnHelper.accessor('status', {
-    header: 'Status',
-    cell: info => h('div', { class: 'capitalize' }, info.getValue()),
-  }),
+  header: 'Status',
+  cell: info => {
+    const value = info.getValue()
+    let colorClass = ''
+
+    if (value === 'Diterima') colorClass = 'text-green-600'
+    else if (value === 'Diproses') colorClass = 'text-yellow-600'
+    else if (value === 'Tidak Diterima') colorClass = 'text-red-600'
+
+    return h(Badge, { variant: 'outline', class: `capitalize ${colorClass}` }, () => value)
+  },
+}),
+
   columnHelper.accessor('tanggungan', {
     header: 'Tanggungan',
     cell: info => h('div', { class: 'text-center' }, info.getValue()),

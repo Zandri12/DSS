@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\SiswaController;
+use App\Http\Controllers\SeleksiController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -16,6 +17,7 @@ Route::middleware(['auth','verified'])->group(function () {
 
     // Siswa Routes
     Route::resource('siswa', SiswaController::class);
+    Route::resource('seleksi',SeleksiController::class);
     Route::delete('/siswa-batch', [SiswaController::class, 'batchDelete']);
 
 });
