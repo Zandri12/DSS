@@ -55,7 +55,7 @@ const form = ref<Siswa>({
   penghasilan: 0,
   prestasi: '',
   nilai_rapor: 0,
-  status: '',
+  status: 'Diproses',
   tanggungan: 0,
 })
 
@@ -143,19 +143,28 @@ const submit = async () => {
 
         <div class="flex flex-col gap-2">
           <label class="text-sm text-muted-foreground font-medium">Status</label>
-          <Select v-model="form.status">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="Pilih Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Status</SelectLabel>
-                <SelectItem value="Diterima">Diterima</SelectItem>
-                <SelectItem value="Tidak Diterima">Tidak Diterima</SelectItem>
-                <SelectItem value="Diproses">Diproses</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+
+          <!-- Jika mode tambah -->
+          <div v-if="!form.id">
+            <Input v-model="form.status" disabled />
+          </div>
+
+          <!-- Jika mode edit -->
+          <div v-else>
+            <Select v-model="form.status">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Pilih Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Status</SelectLabel>
+                  <SelectItem value="Diterima">Diterima</SelectItem>
+                  <SelectItem value="Tidak Diterima">Tidak Diterima</SelectItem>
+                  <SelectItem value="Diproses">Diproses</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div class="flex flex-col gap-2 md:col-span-2">

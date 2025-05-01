@@ -6,6 +6,8 @@ import type {
   VisibilityState,
 } from '@tanstack/vue-table'
 
+
+
 import { cn, valueUpdater } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -113,23 +115,52 @@ const columns = [
     cell: info => h('div', { class: 'text-center' }, info.getValue()),
   }),
   {
-  id: 'actions',
-  enableHiding: false,
-  cell: ({ row }: { row: { original: Siswa } }) => {
-    const handleDelete = async (id: number) => {
-      if (confirm('Yakin mau hapus?')) {
-        await axios.delete(`/siswa/${id}`)
-        reloadPage()
-      }
-    }
+    id: 'actions',
+    enableHiding: false,
+    cell: ({ row }: { row: { original: Siswa } }) => {
+      const handleDelete = async (id: number) => {
+        const result = await Swal.fire({
+          title: 'Yakin mau hapus?',
+          text: "Data yang dihapus tidak dapat dikembalikan!",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#3085d6',
+          cancelButtonColor: '#d33',
+          confirmButtonText: 'Ya, hapus!',
+          cancelButtonText: 'Batal',
+        })
 
-    return h(DropdownAction, {
-      siswa: row.original,
-      onEdit: openEdit,
-      onDelete: handleDelete,
-    })
+        if (result.isConfirmed) {
+          try {
+            await axios.delete(`/siswa/${id}`)
+            await Swal.fire({
+              title: 'Terhapus!',
+              text: 'Data berhasil dihapus.',
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false,
+            })
+            
+            reloadPage()
+          } catch (error) {
+            await Swal.fire({
+              title: 'Gagal!',
+              text: 'Terjadi kesalahan saat menghapus data.',
+              icon: 'error',
+              timer: 1500,
+              showConfirmButton: false,
+            })
+          }
+        }
+      }
+
+      return h(DropdownAction, {
+        siswa: row.original,
+        onEdit: openEdit,
+        onDelete: handleDelete,
+      })
+    },
   },
-},
 ]
 
 const sorting = ref<SortingState>([])
@@ -160,6 +191,40 @@ const table = useVueTable({
     get expanded() { return expanded.value },
   },
 })
+
+
+import {
+  CheckCircledIcon,
+  MinusCircledIcon,
+  InfoCircledIcon,
+} from "@radix-icons/vue";
+import Filter from './Filter.vue'
+//Filter
+const filter_status = {
+  title: 'Filter Status',
+  column: 'status',
+  data: [
+    {
+      value: "Diterima",
+      label: "Diterima",
+      icon: h(CheckCircledIcon),
+    },
+    {
+      value: "Diproses",
+      label: "Diproses",
+      icon: h(InfoCircledIcon),
+    },
+    {
+      value: "Tidak Diterima",
+      label: "Tidak Diterima",
+      icon: h(MinusCircledIcon),
+    },
+  ]
+}
+
+const filter_toolbar = [
+  filter_status,
+];
 
 table.setPageSize(pageSize.value)
 watch(pageSize, newSize => table.setPageSize(newSize))
@@ -195,29 +260,21 @@ const handleBatchDelete = () => {
   showConfirmDialog.value = true
 }
 
-const confirmBatchDelete = async () => {
-  try {
-    await axios.delete('/siswa-batch', {
-      data: { ids: selectedIdsToDelete.value }
-    })
-    Swal.fire('Sukses', 'Data berhasil dihapus', 'info')
-    reloadPage()
-  } catch (err) {
-    console.error(err)
-    Swal.fire('Gagal', 'Terjadi kesalahan saat menghapus', 'error')
-  }
-  showConfirmDialog.value = false
-}
+
 
 </script>
 
 <template>
   <Head title="Data Siswa" />
   <StudentFormDialog v-model="showDialog" :siswaData="editingSiswa" @saved="reloadPage" />
-
+ 
   <AppLayout :breadcrumbs="breadcrumbs">
+    
     <div class="p-4 rounded-xl flex flex-col gap-4">
       <div class="flex items-center gap-2 py-4">
+        <div v-for="filter in filter_toolbar" :key="filter.title">
+            <Filter :column="table.getColumn(filter.column)" :title="filter.title" :options="filter.data"></Filter>
+        </div>
         <Button @click="openCreate" class="flex items-center gap-2">
           <Plus class="w-4 h-4" /> Tambah
         </Button>

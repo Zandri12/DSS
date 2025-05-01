@@ -14,7 +14,7 @@ const edit = () => {
 }
 
 const del = () => {
-  if (confirm('Yakin mau hapus data ini?')) {
+  {
     props.onDelete(props.siswa.id)
   }
 }

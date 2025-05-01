@@ -35,7 +35,7 @@ class SiswaController extends Controller
             'penghasilan' => 'required|numeric',
             'prestasi' => 'nullable|string',
             'nilai_rapor' => 'required|numeric',
-            'status' => 'required|string',
+            'status' => 'string',
             'tanggungan' => 'required|numeric',
         ]);
 

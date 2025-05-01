@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('penghasilan', 15, 2);
             $table->string('prestasi', 255);
             $table->decimal('nilai_rapor', 5, 2);
-            $table->enum('status', ['Diterima', 'Tidak Diterima', 'Diproses']);
+            $table->enum('status', ['Diterima', 'Tidak Diterima', 'Diproses'])->nullable();
             $table->integer('tanggungan');
             $table->timestamps();
         });
