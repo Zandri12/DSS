@@ -53,6 +53,64 @@ const props = defineProps<{
     tipe: string
   }>
 }>()
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Plus } from 'lucide-vue-next'
+import axios from 'axios'
+import Swal from 'sweetalert2'
+
+const openDialog = ref(false)
+
+const form = ref({
+  nama_kriteria: '',
+  bobot: 0,
+  tipe: '',
+})
+const rawBobot = ref('')
+const handleBobotInput = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const value = target.value.replace(',', '.')
+  form.value.bobot = parseFloat(value) || 0
+}
+
+
+const submitForm = async () => {
+  try {
+    await axios.post('/kriteria', form.value)
+    Swal.fire({
+      title: 'Berhasil!',
+      text: 'Kriteria berhasil ditambahkan.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false,
+    })
+    openDialog.value = false
+    // reload atau fetch ulang data kriteria di sini
+    window.location.reload()
+  } catch (error) {
+    Swal.fire({
+      title: 'Gagal!',
+      text: 'Terjadi kesalahan saat menambah kriteria.',
+      icon: 'error',
+      timer: 1500,
+      showConfirmButton: false,
+    })
+  }
+}
 
 // State
 const sorting = ref<SortingState>([])
@@ -143,7 +201,48 @@ const table = useVueTable({
 
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex flex-col space-y-4 p-4">
+     
       <div class="flex items-center py-2">
+        <Button @click="openDialog = true"  class="flex items-center gap-2">
+          <Plus class="w-4 h-4 mr-2" /> Tambah Kriteria
+        </Button>
+        <AlertDialog :open="openDialog" @update:open="openDialog = $event">
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tambah Kriteria</AlertDialogTitle>
+            <AlertDialogDescription>
+              Masukkan data kriteria baru di bawah ini.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form @submit.prevent="submitForm">
+            <div class="space-y-2">
+              <Input v-model="form.nama_kriteria" placeholder="Nama Kriteria" />
+              <Input
+                v-model="rawBobot"
+                type="text"
+                placeholder="Bobot (gunakan titik/koma)"
+                @input="handleBobotInput"
+              />
+
+              <Select v-model="form.tipe">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Pilih Tipe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="benefit">Benefit</SelectItem>
+                  <SelectItem value="cost">Cost</SelectItem>
+                </SelectContent>
+              </Select>
+
+
+            </div>
+            <AlertDialogFooter class="mt-4">
+              <Button type="button" variant="outline" @click="openDialog = false">Batal</Button>
+              <Button type="submit">Simpan</Button>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
         <Input
           class="max-w-sm"
           placeholder="Filter nama kriteria..."
