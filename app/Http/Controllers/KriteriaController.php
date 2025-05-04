@@ -20,14 +20,16 @@ class KriteriaController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'nama' => 'required',
+        $validated = $request->validate([
+            'nama_kriteria' => 'required|string|max:255',
             'bobot' => 'required|numeric',
-            'tipe' => 'required',
+            'tipe' => 'required|in:benefit,cost',
         ]);
-        $kriteria = Kriteria::create($data);
-        return response()->json($kriteria, 201);
-    }
+
+        Kriteria::create($validated);
+
+        return response()->json(['message' => 'Kriteria berhasil disimpan'], 201);
+}
 
     public function show(Kriteria $kriteria)
     {

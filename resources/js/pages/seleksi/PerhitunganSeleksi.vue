@@ -90,7 +90,8 @@ const handleBobotInput = (e: Event) => {
 
 const submitForm = async () => {
   try {
-    await axios.post('/kriteria', form.value)
+    const response = await axios.post('/kriteria', form.value);
+    console.log(response.data); // Tambahkan log untuk melihat respons dari server
     Swal.fire({
       title: 'Berhasil!',
       text: 'Kriteria berhasil ditambahkan.',
@@ -99,9 +100,9 @@ const submitForm = async () => {
       showConfirmButton: false,
     })
     openDialog.value = false
-    // reload atau fetch ulang data kriteria di sini
     window.location.reload()
   } catch (error) {
+    console.error(error); // Log error untuk debug
     Swal.fire({
       title: 'Gagal!',
       text: 'Terjadi kesalahan saat menambah kriteria.',
@@ -111,6 +112,7 @@ const submitForm = async () => {
     })
   }
 }
+
 
 // State
 const sorting = ref<SortingState>([])
