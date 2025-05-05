@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import { type BreadcrumbItem } from '@/types'
 import { Head } from '@inertiajs/vue3'
 import { h, ref } from 'vue'
+
 import type {
   ColumnDef,
   ColumnFiltersState,
@@ -48,11 +49,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const props = defineProps<{
   kriteria: Array<{
+    id: number
     nama_kriteria: string
     bobot: number
     tipe: string
   }>
 }>()
+
 import {
   Select,
   SelectContent,
@@ -69,13 +72,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus } from 'lucide-vue-next'
+import { Plus, MoreHorizontal } from 'lucide-vue-next'
 import axios from 'axios'
 import Swal from 'sweetalert2'
+import KriteriaAction from './KriteriaAction.vue'
 
 const openDialog = ref(false)
+const editingKriteria = ref(null)
 
-const form = ref({
+const form = ref<{
+  id: number | null
+  nama_kriteria: string
+  bobot: number
+  tipe: string
+}>({
+  id: null,
   nama_kriteria: '',
   bobot: 0,
   tipe: '',
@@ -87,31 +98,118 @@ const handleBobotInput = (e: Event) => {
   form.value.bobot = parseFloat(value) || 0
 }
 
+const openCreate = () => {
+  form.value = {
+    id: null,
+    nama_kriteria: '',
+    bobot: 0,
+    tipe: ''
+  }
+  rawBobot.value = ''
+  openDialog.value = true
+}
+
+const openEdit = (kriteria: { id: number; nama_kriteria: string; bobot: number; tipe: string }) => {
+  form.value = {
+    id: kriteria.id,
+    nama_kriteria: kriteria.nama_kriteria,
+    bobot: kriteria.bobot,
+    tipe: kriteria.tipe
+  }
+  rawBobot.value = kriteria.bobot.toString()
+  openDialog.value = true
+}
+
+const handleDelete = async (id: number) => {
+  const result = await Swal.fire({
+    title: 'Yakin mau hapus?',
+    text: "Data yang dihapus tidak dapat dikembalikan!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Ya, hapus!',
+    cancelButtonText: 'Batal',
+  })
+
+  if (result.isConfirmed) {
+    try {
+      axios.delete(`/kriteria/${id}`, {
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        }
+      })
+
+      await Swal.fire({
+        title: 'Terhapus!',
+        text: 'Data berhasil dihapus.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      })
+      
+      window.location.reload()
+    } catch (error) {
+      await Swal.fire({
+        title: 'Gagal!',
+        text: 'Terjadi kesalahan saat menghapus data.',
+        icon: 'error',
+        timer: 1500,
+        showConfirmButton: false,
+      })
+    }
+  }
+}
 
 const submitForm = async () => {
   try {
-    const response = await axios.post('/kriteria', form.value);
-    console.log(response.data); // Tambahkan log untuk melihat respons dari server
-    Swal.fire({
-      title: 'Berhasil!',
-      text: 'Kriteria berhasil ditambahkan.',
-      icon: 'success',
-      timer: 1500,
-      showConfirmButton: false,
-    })
-    openDialog.value = false
-    window.location.reload()
+    const formData = {
+      ...form.value,
+      bobot: parseFloat(rawBobot.value),
+      tipe: form.value.tipe.toLowerCase(),
+    };
+
+    console.log('Form data:', formData);  // Log form data untuk memastikan
+    
+    let response;
+    if (form.value.id) {
+      // Update existing kriteria
+      response = await axios.put(`/kriteria/${form.value.id}`, formData);
+      console.log('Response:', response);  // Log response dari API
+      await Swal.fire({
+        title: 'Berhasil!',
+        text: 'Kriteria berhasil diperbarui.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } else {
+      // Create new kriteria
+      response = await axios.post('/kriteria', formData);
+      console.log('Response:', response);  // Log response dari API
+      await Swal.fire({
+        title: 'Berhasil!',
+        text: 'Kriteria berhasil ditambahkan.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    }
+    openDialog.value = false;
+    window.location.reload();
   } catch (error) {
-    console.error(error); // Log error untuk debug
+    console.error(error);  // Log error untuk debugging
     Swal.fire({
       title: 'Gagal!',
-      text: 'Terjadi kesalahan saat menambah kriteria.',
+      text: 'Terjadi kesalahan saat menyimpan kriteria.',
       icon: 'error',
       timer: 1500,
       showConfirmButton: false,
-    })
+    });
   }
 }
+
+
 
 
 // State
@@ -148,7 +246,7 @@ const columns: ColumnDef<typeof props.kriteria[0]>[] = [
         },
         () => ['Bobot', h(ArrowUpDown, { class: 'ml-2 h-4 w-4' })],
       ),
-    cell: ({ row }) =>
+    cell: ({ row }) => 
       h('div', { class: 'text-right font-medium' }, row.getValue('bobot')),
   },
   {
@@ -156,6 +254,17 @@ const columns: ColumnDef<typeof props.kriteria[0]>[] = [
     header: 'Tipe',
     cell: ({ row }) =>
       h('div', { class: 'capitalize' }, row.getValue('tipe')),
+  },
+  {
+    id: 'actions',
+    enableHiding: false,
+    cell: ({ row }) => {
+      return h(KriteriaAction, {
+        kriteria: row.original,
+        onEdit: openEdit,
+        onDelete: handleDelete,
+      })
+    },
   },
 ]
 
@@ -196,6 +305,8 @@ const table = useVueTable({
     },
   },
 })
+
+
 </script>
 
 <template>
@@ -205,17 +316,20 @@ const table = useVueTable({
     <div class="flex flex-col space-y-4 p-4">
      
       <div class="flex items-center py-2">
-        <Button @click="openDialog = true"  class="flex items-center gap-2">
+        <Button @click="openCreate"  class="flex items-center gap-2">
           <Plus class="w-4 h-4 mr-2" /> Tambah Kriteria
         </Button>
         <AlertDialog :open="openDialog" @update:open="openDialog = $event">
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Tambah Kriteria</AlertDialogTitle>
+            <AlertDialogTitle>
+              {{ form.id ? 'Edit Kriteria' : 'Tambah Kriteria' }}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Masukkan data kriteria baru di bawah ini.
+              {{ form.id ? 'Perbarui data kriteria di bawah ini.' : 'Masukkan data kriteria baru di bawah ini.' }}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <form @submit.prevent="submitForm">
             <div class="space-y-2">
               <Input v-model="form.nama_kriteria" placeholder="Nama Kriteria" />
@@ -231,8 +345,8 @@ const table = useVueTable({
                   <SelectValue placeholder="Pilih Tipe" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="benefit">Benefit</SelectItem>
-                  <SelectItem value="cost">Cost</SelectItem>
+                  <SelectItem value="Benefit">Benefit</SelectItem>
+                  <SelectItem value="Cost">Cost</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -329,4 +443,6 @@ const table = useVueTable({
       </div>
     </div>
   </AppLayout>
+  
 </template>
+

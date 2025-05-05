@@ -41,20 +41,30 @@ class KriteriaController extends Controller
         // Untuk Inertia atau view jika diperlukan
     }
 
-    public function update(Request $request, Kriteria $kriteria)
+    public function update(Request $request, $id)
     {
-        $data = $request->validate([
-            'nama' => 'required',
+        $validated = $request->validate([
+            'nama_kriteria' => 'required|string|max:255',
             'bobot' => 'required|numeric',
-            'tipe' => 'required',
+            'tipe' => 'required|in:benefit,cost',
         ]);
-        $kriteria->update($data);
-        return response()->json($kriteria);
+
+        $kriteria = Kriteria::findOrFail($id);
+        $kriteria->update($validated);
+
+        return response()->json([
+            'message' => 'Kriteria berhasil diperbarui',
+            'data' => $kriteria,
+        ]);
     }
 
-    public function destroy(Kriteria $kriteria)
+
+
+    public function destroy($id)
     {
+        $kriteria = Kriteria::findOrFail($id);
         $kriteria->delete();
-        return response()->json(null, 204);
+
+        return response()->json(['message' => 'Berhasil dihapus']);
     }
 }
