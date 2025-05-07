@@ -2,7 +2,67 @@
 import AppLayout from '@/layouts/AppLayout.vue'
 import { type BreadcrumbItem } from '@/types'
 import { Head } from '@inertiajs/vue3'
-import { h, ref } from 'vue'
+import { h, ref, computed, reactive, onMounted } from 'vue'
+
+const openFormJawaban = ref(false)
+const jawaban = reactive<{ [key: string]: string }>({})
+
+// Load jawaban dari localStorage saat komponen dimuat
+onMounted(() => {
+  const savedJawaban = localStorage.getItem('dss_jawaban')
+  if (savedJawaban) {
+    const parsed = JSON.parse(savedJawaban)
+    Object.assign(jawaban, parsed)
+  } else {
+    initJawaban()
+  }
+})
+
+// Inisialisasi jawaban berdasarkan kriteria
+const initJawaban = () => {
+  Object.keys(jawaban).forEach(key => delete jawaban[key])
+  props.kriteria.forEach((k) => {
+    jawaban[k.nama_kriteria] = ''
+  })
+}
+
+const selectedSiswaNama = ref('')
+
+
+const submitJawaban = async () => {
+  if (!selectedSiswaNama.value) {
+    alert('Silakan pilih siswa terlebih dahulu.');
+    return;
+  }
+
+  const data = {
+    siswa: selectedSiswaNama.value,
+    jawaban: { ...jawaban },
+    pilihan_dropdown: form.value.tipe_form === 'select' ? form.value.pilihan_dropdown : undefined
+  };
+
+  try {
+    const response = await axios.post('/api/submit-jawaban', data);
+    console.log('Response:', response);
+    Swal.fire({
+      title: 'Berhasil!',
+      text: 'Jawaban berhasil disimpan.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    console.error(error);
+    Swal.fire({
+      title: 'Gagal!',
+      text: 'Terjadi kesalahan saat menyimpan jawaban.',
+      icon: 'error',
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  }
+};
+
 
 import type {
   ColumnDef,
@@ -53,6 +113,13 @@ const props = defineProps<{
     nama_kriteria: string
     bobot: number
     tipe: string
+    deskripsi: string
+    tipe_form: string
+    pilihan_dropdown?: string[]
+  }>
+  siswa: Array<{
+    nama_siswa: string
+    [key: string]: any
   }>
 }>()
 
@@ -85,12 +152,19 @@ const form = ref<{
   nama_kriteria: string
   bobot: number
   tipe: string
+  deskripsi: string
+  tipe_form: string
+  pilihan_dropdown?: string[]
 }>({
   id: null,
   nama_kriteria: '',
   bobot: 0,
   tipe: '',
+  deskripsi: '',
+  tipe_form: '',
+  pilihan_dropdown: [],
 })
+
 const rawBobot = ref('')
 const handleBobotInput = (e: Event) => {
   const target = e.target as HTMLInputElement
@@ -103,22 +177,38 @@ const openCreate = () => {
     id: null,
     nama_kriteria: '',
     bobot: 0,
-    tipe: ''
+    tipe: '',
+    deskripsi: '',
+    tipe_form: ''
   }
   rawBobot.value = ''
   openDialog.value = true
 }
 
-const openEdit = (kriteria: { id: number; nama_kriteria: string; bobot: number; tipe: string }) => {
+const openEdit = (kriteria: {
+  id: number
+  nama_kriteria: string
+  bobot: number
+  tipe: string
+  deskripsi: string
+  tipe_form: string
+  pilihan_dropdown?: string[]
+}) => {
   form.value = {
     id: kriteria.id,
     nama_kriteria: kriteria.nama_kriteria,
     bobot: kriteria.bobot,
-    tipe: kriteria.tipe
+    tipe: kriteria.tipe,
+    deskripsi: kriteria.deskripsi,
+    tipe_form: kriteria.tipe_form,
+    pilihan_dropdown: kriteria.pilihan_dropdown || [],
   }
   rawBobot.value = kriteria.bobot.toString()
   openDialog.value = true
 }
+
+
+
 
 const handleDelete = async (id: number) => {
   const result = await Swal.fire({
@@ -161,12 +251,39 @@ const handleDelete = async (id: number) => {
   }
 }
 
+const siswa = props.siswa
+
+// Mapping field di model Siswa ke kriteria
+const kriteriaFieldMap: Record<string, keyof typeof siswa[0]> = {
+  "nilai rapor": "nilai_rapor",
+  "penghasilan": "penghasilan",
+  "prestasi": "prestasi",
+  "tanggungan": "tanggungan",
+}
+
+// Membentuk nilai matriks dari data siswa dan kriteria
+const matrix = computed(() => {
+  const result = siswa.map((s) => {
+    const nilai: Record<string, number> = {}
+    props.kriteria.forEach((k) => {
+      const field = kriteriaFieldMap[k.nama_kriteria.toLowerCase()]
+      nilai[k.nama_kriteria] = parseFloat(s[field]) || 0
+    })
+    return {
+      nama: s.nama_siswa,
+      nilai,
+    }
+  })
+  return result
+})
+
 const submitForm = async () => {
   try {
     const formData = {
       ...form.value,
       bobot: parseFloat(rawBobot.value),
       tipe: form.value.tipe.toLowerCase(),
+      pilihan_dropdown: form.value.tipe_form === 'select' ? form.value.pilihan_dropdown : undefined
     };
 
     console.log('Form data:', formData);  // Log form data untuk memastikan
@@ -250,6 +367,16 @@ const columns: ColumnDef<typeof props.kriteria[0]>[] = [
       h('div', { class: 'text-right font-medium' }, row.getValue('bobot')),
   },
   {
+    accessorKey: 'deskripsi',
+    header: 'Deskripsi',
+    cell: ({ row }) => h('div', row.getValue('deskripsi')),
+  },
+  {
+    accessorKey: 'tipe_form',
+    header: 'Tipe Form',
+    cell: ({ row }) => h('div', row.getValue('tipe_form')),
+  },
+  {
     accessorKey: 'tipe',
     header: 'Tipe',
     cell: ({ row }) =>
@@ -311,7 +438,9 @@ const table = useVueTable({
 
 <template>
   <Head title="Seleksi" />
-
+  <Button @click="() => { initJawaban(); openFormJawaban = true }" class="ml-4">
+  Isi Jawaban
+</Button>
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex flex-col space-y-4 p-4">
      
@@ -339,6 +468,30 @@ const table = useVueTable({
                 placeholder="Bobot (gunakan titik/koma)"
                 @input="handleBobotInput"
               />
+              <Input v-model="form.deskripsi" placeholder="Deskripsi Pertanyaan" />
+
+              <!-- Pilih tipe form terlebih dahulu -->
+              <Select v-model="form.tipe_form">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Pilih tipe form" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="input">Input</SelectItem>
+                  <SelectItem value="select">Select</SelectItem>
+                  <SelectItem value="textarea">Textarea</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <!-- Tampilkan opsi sesuai tipe form yang dipilih -->
+              <div v-if="form.tipe_form === 'select'" class="space-y-2">
+                <p class="text-sm text-gray-500">Pilihan untuk dropdown:</p>
+                <Input 
+                :model-value="form.pilihan_dropdown?.join(',') || ''"
+                @update:model-value="(value) => form.pilihan_dropdown = (typeof value === 'string' ? value.split(',').map(item => item.trim()) : [])"
+                placeholder="Contoh: rendah,sedang,tinggi" 
+                @input="(e: Event) => form.pilihan_dropdown = ((e.target as HTMLInputElement).value.split(',').map(item => item.trim()))"
+              />
+              </div>
 
               <Select v-model="form.tipe">
                 <SelectTrigger class="w-full">
@@ -441,8 +594,102 @@ const table = useVueTable({
           </Button>
         </div>
       </div>
+      <h2 class="text-xl font-bold mb-4">Matriks Keputusan</h2>
+      <div class="rounded-md border">
+      
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nama Siswa</TableHead>
+            <TableHead v-for="k in props.kriteria" :key="k.id">
+              {{ k.nama_kriteria }}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, i) in matrix" :key="i">
+            <TableCell class="font-medium">{{ row.nama }}</TableCell>
+            <TableCell
+              v-for="k in props.kriteria"
+              :key="k.id"
+            >
+              {{ row.nilai[k.nama_kriteria] }}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
+    </div>
+    <Button @click="() => { initJawaban(); openFormJawaban = true }" variant="secondary" class="ml-2">
+      Isi Pertanyaan Kriteria
+    </Button>
+
+    =<AlertDialog :open="openFormJawaban" @update:open="openFormJawaban = $event">
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Isi Jawaban Siswa</AlertDialogTitle>
+      <AlertDialogDescription>
+        Pilih siswa dan isi jawaban untuk setiap kriteria.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+
+    <div class="space-y-4">
+      <!-- Pilih siswa -->
+      <Select v-model="selectedSiswaNama">
+        <SelectTrigger class="w-full">
+          <SelectValue placeholder="Pilih siswa" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem
+            v-for="s in siswa"
+            :key="s.nama_siswa"
+            :value="s.nama_siswa"
+          >
+            {{ s.nama_siswa }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+
+      <!-- Loop kriteria -->
+      <div v-for="k in props.kriteria" :key="k.id" class="space-y-1">
+        <label class="block font-medium">{{ k.nama_kriteria }}</label>
+
+        <!-- Jika tipe form select -->
+        <Select
+          v-if="k.tipe_form === 'select'"
+          v-model="jawaban[k.nama_kriteria]"
+        >
+          <SelectTrigger class="w-full">
+            <SelectValue placeholder="Pilih jawaban" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="option in k.pilihan_dropdown || []"
+              :key="option"
+              :value="option"
+            >
+              {{ option }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <!-- Jika tipe form input -->
+        <Input
+          v-else
+          v-model="jawaban[k.nama_kriteria]"
+          placeholder="Isi jawaban"
+        />
+      </div>
+    </div>
+
+    <AlertDialogFooter class="mt-4">
+      <Button type="button" variant="outline" @click="openFormJawaban = false">Batal</Button>
+      <Button type="button" @click="submitJawaban">Simpan Jawaban</Button>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+
+
   </AppLayout>
   
 </template>
-

@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('nama_kriteria', 100);
             $table->decimal('bobot', 3, 2);
             $table->enum('tipe', ['Benefit', 'Cost']);
+            $table->text('deskripsi'); // Menambahkan kolom deskripsi
+            $table->json('pilihan_dropdown')->nullable();
+            $table->enum('tipe_form', ['input', 'select', 'textarea']); // Menambahkan kolom tipe_form
             $table->timestamps();
         });
     }

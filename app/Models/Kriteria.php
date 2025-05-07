@@ -13,5 +13,12 @@ class Kriteria extends Model
         'nama_kriteria',
         'bobot',
         'tipe',
+        'tipe_form',
+        'deskripsi',
+        'pilihan_dropdown',
+    ];
+
+    protected $casts = [
+        'pilihan_dropdown' => 'array'
     ];
 }

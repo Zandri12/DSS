@@ -14,17 +14,26 @@ class SeleksiController extends Controller
      * Display a listing of the resource.
      */
     public function index(Request $request)
-    {
-        $kriteria = Kriteria::all();
+{
+    $kriteria = Kriteria::all();
+    $siswa = Siswa::all();
+    $hasilVikor = HasilVikor::all();
 
-        if ($request->wantsJson()) {
-            return response()->json($kriteria);
-        }
-
-        return Inertia::render('seleksi/PerhitunganSeleksi', [
-            'kriteria' => $kriteria
+    if ($request->wantsJson()) {
+        return response()->json([
+            'kriteria' => $kriteria,
+            'siswa' => $siswa,
+            'hasilVikor' => $hasilVikor
         ]);
     }
+
+    return Inertia::render('seleksi/PerhitunganSeleksi', [
+        'kriteria' => $kriteria,
+        'siswa' => $siswa,
+        'hasilVikor' => $hasilVikor
+    ]);
+}
+
 
 
     /**
