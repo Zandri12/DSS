@@ -35,14 +35,30 @@ const submitJawaban = async () => {
     return;
   }
 
+  // Ubah objek jawaban menjadi array of objects
+  const jawabanArray = Object.entries(jawaban).map(([kriteria_id, nilai]) => ({
+    kriteria_id: parseInt(kriteria_id),
+    nilai: parseFloat(nilai),
+  }));
+
+  console.log("Jawaban Array:", jawabanArray); // Cek hasil konversi jawaban
+
+  // Format data yang akan dikirim
   const data = {
-    siswa: selectedSiswaNama.value,
-    jawaban: { ...jawaban },
-    pilihan_dropdown: form.value.tipe_form === 'select' ? form.value.pilihan_dropdown : undefined
+    siswa_id: selectedSiswaNama.value,  // Pastikan selectedSiswaNama berisi ID yang benar
+    jawaban: jawabanArray,  // Kirim array jawaban yang sudah benar
+    pilihan_dropdown:
+      form.value.tipe_form === 'select'
+        ? Array.isArray(form.value.pilihan_dropdown)
+          ? form.value.pilihan_dropdown
+          : JSON.parse(form.value.pilihan_dropdown || '[]')
+        : undefined,
   };
 
+  console.log("Data yang dikirim:", data); // Log data untuk memastikan formatnya benar
+
   try {
-    const response = await axios.post('/api/submit-jawaban', data);
+    const response = await axios.post('/jawaban', data);
     console.log('Response:', response);
     Swal.fire({
       title: 'Berhasil!',
@@ -155,6 +171,7 @@ const form = ref<{
   deskripsi: string
   tipe_form: string
   pilihan_dropdown?: string[]
+  faktor?: string
 }>({
   id: null,
   nama_kriteria: '',
@@ -163,6 +180,7 @@ const form = ref<{
   deskripsi: '',
   tipe_form: '',
   pilihan_dropdown: [],
+  faktor: '',
 })
 
 const rawBobot = ref('')
@@ -185,6 +203,16 @@ const openCreate = () => {
   openDialog.value = true
 }
 
+function normalizeDropdown(value: string[] | string | undefined): string[] {
+  if (Array.isArray(value)) return value
+  if (value === "[]") return []
+  try {
+    const parsed = JSON.parse(value ?? '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
 const openEdit = (kriteria: {
   id: number
   nama_kriteria: string
@@ -201,7 +229,8 @@ const openEdit = (kriteria: {
     tipe: kriteria.tipe,
     deskripsi: kriteria.deskripsi,
     tipe_form: kriteria.tipe_form,
-    pilihan_dropdown: kriteria.pilihan_dropdown || [],
+    pilihan_dropdown: normalizeDropdown(kriteria.pilihan_dropdown),
+
   }
   rawBobot.value = kriteria.bobot.toString()
   openDialog.value = true
@@ -326,6 +355,18 @@ const submitForm = async () => {
   }
 }
 
+function parseDropdown(val: string[] | string | undefined): { value: string, label: string }[] {
+  if (Array.isArray(val)) {
+    // anggap sudah dalam bentuk array of { value, label }
+    return val as any
+  }
+  try {
+    const parsed = JSON.parse(val ?? '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
 
 
 
@@ -462,6 +503,8 @@ const table = useVueTable({
           <form @submit.prevent="submitForm">
             <div class="space-y-2">
               <Input v-model="form.nama_kriteria" placeholder="Nama Kriteria" />
+              <Input v-model="form.faktor" placeholder="Faktor (contoh: akademik, non-akademik)" />
+
               <Input
                 v-model="rawBobot"
                 type="text"
@@ -624,72 +667,71 @@ const table = useVueTable({
       Isi Pertanyaan Kriteria
     </Button>
 
-    =<AlertDialog :open="openFormJawaban" @update:open="openFormJawaban = $event">
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Isi Jawaban Siswa</AlertDialogTitle>
-      <AlertDialogDescription>
-        Pilih siswa dan isi jawaban untuk setiap kriteria.
-      </AlertDialogDescription>
-    </AlertDialogHeader>
+    <AlertDialog :open="openFormJawaban" @update:open="openFormJawaban = $event">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Isi Jawaban Siswa</AlertDialogTitle>
+          <AlertDialogDescription>
+            Pilih siswa dan isi jawaban untuk setiap kriteria.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-    <div class="space-y-4">
-      <!-- Pilih siswa -->
-      <Select v-model="selectedSiswaNama">
-        <SelectTrigger class="w-full">
-          <SelectValue placeholder="Pilih siswa" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem
-            v-for="s in siswa"
-            :key="s.nama_siswa"
-            :value="s.nama_siswa"
+        <div class="space-y-4">
+          <!-- Pilih siswa -->
+          <Select v-model="selectedSiswaNama">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="Pilih siswa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="s in siswa"
+                :key="s.nama_siswa"
+                :value="String(s.id)"
+              >
+                {{ s.nama_siswa }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <!-- Loop kriteria -->
+          <div v-for="k in props.kriteria" :key="k.id" class="space-y-1">
+            <label class="block font-medium">{{ k.nama_kriteria }}</label>
+
+            <!-- Jika tipe form select -->
+            <Select
+            v-if="k.tipe_form === 'select'"
+            v-model="jawaban[k.nama_kriteria]"
           >
-            {{ s.nama_siswa }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="Pilih jawaban" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="option in parseDropdown(k.pilihan_dropdown)"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </SelectItem>
 
-      <!-- Loop kriteria -->
-      <div v-for="k in props.kriteria" :key="k.id" class="space-y-1">
-        <label class="block font-medium">{{ k.nama_kriteria }}</label>
+            </SelectContent>
+          </Select>
 
-        <!-- Jika tipe form select -->
-        <Select
-          v-if="k.tipe_form === 'select'"
-          v-model="jawaban[k.nama_kriteria]"
-        >
-          <SelectTrigger class="w-full">
-            <SelectValue placeholder="Pilih jawaban" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="option in k.pilihan_dropdown || []"
-              :key="option"
-              :value="option"
-            >
-              {{ option }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+            <!-- Jika tipe form input -->
+            <Input
+              v-else
+              v-model="jawaban[k.nama_kriteria]"
+              placeholder="Isi jawaban"
+            />
+          </div>
+        </div>
 
-        <!-- Jika tipe form input -->
-        <Input
-          v-else
-          v-model="jawaban[k.nama_kriteria]"
-          placeholder="Isi jawaban"
-        />
-      </div>
-    </div>
-
-    <AlertDialogFooter class="mt-4">
-      <Button type="button" variant="outline" @click="openFormJawaban = false">Batal</Button>
-      <Button type="button" @click="submitJawaban">Simpan Jawaban</Button>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
-
-
+        <AlertDialogFooter class="mt-4">
+          <Button type="button" variant="outline" @click="openFormJawaban = false">Batal</Button>
+          <Button type="button" @click="submitJawaban">Simpan Jawaban</Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </AppLayout>
   
 </template>

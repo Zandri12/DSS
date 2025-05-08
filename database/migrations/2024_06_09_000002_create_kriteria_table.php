@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('kriteria', function (Blueprint $table) {
             $table->id();
             $table->string('nama_kriteria', 100);
+            $table->string('faktor')->nullable();
             $table->decimal('bobot', 3, 2);
             $table->enum('tipe', ['Benefit', 'Cost']);
             $table->text('deskripsi'); // Menambahkan kolom deskripsi
