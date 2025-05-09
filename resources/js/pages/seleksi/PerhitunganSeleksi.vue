@@ -36,10 +36,11 @@ const submitJawaban = async () => {
   }
 
   // Ubah objek jawaban menjadi array of objects
-  const jawabanArray = Object.entries(jawaban).map(([kriteria_id, nilai]) => ({
-    kriteria_id: parseInt(kriteria_id),
-    nilai: parseFloat(nilai),
-  }));
+const jawabanArray = props.kriteria.map((kriteria) => ({
+  kriteria_id: kriteria.id,
+  nilai: parseFloat(jawaban[kriteria.nama_kriteria]) || 0,
+}));
+
 
   console.log("Jawaban Array:", jawabanArray); // Cek hasil konversi jawaban
 
@@ -136,6 +137,11 @@ const props = defineProps<{
   siswa: Array<{
     nama_siswa: string
     [key: string]: any
+  }>
+  jawaban: Array<{
+    siswa_id: number
+    kriteria_id: number
+    jawaban: number
   }>
 }>()
 
@@ -237,6 +243,18 @@ const openEdit = (kriteria: {
 }
 
 
+const jawabanMatriks = computed(() => {
+  const matrix: Record<number, Record<number, number>> = {}
+
+  props.jawaban.forEach(j => {
+    if (!matrix[j.siswa_id]) {
+      matrix[j.siswa_id] = {}
+    }
+    matrix[j.siswa_id][j.kriteria_id] = j.jawaban
+  })
+
+  return matrix
+})
 
 
 const handleDelete = async (id: number) => {
@@ -291,20 +309,6 @@ const kriteriaFieldMap: Record<string, keyof typeof siswa[0]> = {
 }
 
 // Membentuk nilai matriks dari data siswa dan kriteria
-const matrix = computed(() => {
-  const result = siswa.map((s) => {
-    const nilai: Record<string, number> = {}
-    props.kriteria.forEach((k) => {
-      const field = kriteriaFieldMap[k.nama_kriteria.toLowerCase()]
-      nilai[k.nama_kriteria] = parseFloat(s[field]) || 0
-    })
-    return {
-      nama: s.nama_siswa,
-      nilai,
-    }
-  })
-  return result
-})
 
 const submitForm = async () => {
   try {
@@ -479,82 +483,81 @@ const table = useVueTable({
 
 <template>
   <Head title="Seleksi" />
-  <Button @click="() => { initJawaban(); openFormJawaban = true }" class="ml-4">
-  Isi Jawaban
-</Button>
   <AppLayout :breadcrumbs="breadcrumbs">
-    <div class="flex flex-col space-y-4 p-4">
-     
-      <div class="flex items-center py-2">
+    <div class="p-4 rounded-xl flex flex-col gap-4">
+      <div class="flex items-center gap-2 py-4">
+        <Button @click="() => { initJawaban(); openFormJawaban = true }" variant="secondary" class="ml-2">
+          Pertanyaan
+        </Button>
         <Button @click="openCreate"  class="flex items-center gap-2">
           <Plus class="w-4 h-4 mr-2" /> Tambah Kriteria
         </Button>
         <AlertDialog :open="openDialog" @update:open="openDialog = $event">
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {{ form.id ? 'Edit Kriteria' : 'Tambah Kriteria' }}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {{ form.id ? 'Perbarui data kriteria di bawah ini.' : 'Masukkan data kriteria baru di bawah ini.' }}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {{ form.id ? 'Edit Kriteria' : 'Tambah Kriteria' }}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {{ form.id ? 'Perbarui data kriteria di bawah ini.' : 'Masukkan data kriteria baru di bawah ini.' }}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
 
-          <form @submit.prevent="submitForm">
-            <div class="space-y-2">
-              <Input v-model="form.nama_kriteria" placeholder="Nama Kriteria" />
-              <Input v-model="form.faktor" placeholder="Faktor (contoh: akademik, non-akademik)" />
+            <form @submit.prevent="submitForm">
+              <div class="space-y-2">
+                <Input v-model="form.nama_kriteria" placeholder="Nama Kriteria" />
+                <Input v-model="form.faktor" placeholder="Faktor (contoh: akademik, non-akademik)" />
 
-              <Input
-                v-model="rawBobot"
-                type="text"
-                placeholder="Bobot (gunakan titik/koma)"
-                @input="handleBobotInput"
-              />
-              <Input v-model="form.deskripsi" placeholder="Deskripsi Pertanyaan" />
+                <Input
+                  v-model="rawBobot"
+                  type="text"
+                  placeholder="Bobot (gunakan titik/koma)"
+                  @input="handleBobotInput"
+                />
+                <Input v-model="form.deskripsi" placeholder="Deskripsi Pertanyaan" />
 
-              <!-- Pilih tipe form terlebih dahulu -->
-              <Select v-model="form.tipe_form">
-                <SelectTrigger class="w-full">
-                  <SelectValue placeholder="Pilih tipe form" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="input">Input</SelectItem>
-                  <SelectItem value="select">Select</SelectItem>
-                  <SelectItem value="textarea">Textarea</SelectItem>
-                </SelectContent>
-              </Select>
+                <!-- Pilih tipe form terlebih dahulu -->
+                <Select v-model="form.tipe_form">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="Pilih tipe form" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="input">Input</SelectItem>
+                    <SelectItem value="select">Select</SelectItem>
+                    <SelectItem value="textarea">Textarea</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <!-- Tampilkan opsi sesuai tipe form yang dipilih -->
-              <div v-if="form.tipe_form === 'select'" class="space-y-2">
-                <p class="text-sm text-gray-500">Pilihan untuk dropdown:</p>
-                <Input 
-                :model-value="form.pilihan_dropdown?.join(',') || ''"
-                @update:model-value="(value) => form.pilihan_dropdown = (typeof value === 'string' ? value.split(',').map(item => item.trim()) : [])"
-                placeholder="Contoh: rendah,sedang,tinggi" 
-                @input="(e: Event) => form.pilihan_dropdown = ((e.target as HTMLInputElement).value.split(',').map(item => item.trim()))"
-              />
+                <!-- Tampilkan opsi sesuai tipe form yang dipilih -->
+                <div v-if="form.tipe_form === 'select'" class="space-y-2">
+                  <p class="text-sm text-gray-500">Pilihan untuk dropdown:</p>
+                  <Input 
+                  :model-value="form.pilihan_dropdown?.join(',') || ''"
+                  @update:model-value="(value) => form.pilihan_dropdown = (typeof value === 'string' ? value.split(',').map(item => item.trim()) : [])"
+                  placeholder="Contoh: rendah,sedang,tinggi" 
+                  @input="(e: Event) => form.pilihan_dropdown = ((e.target as HTMLInputElement).value.split(',').map(item => item.trim()))"
+                />
+                </div>
+
+                <Select v-model="form.tipe">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="Pilih Tipe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Benefit">Benefit</SelectItem>
+                    <SelectItem value="Cost">Cost</SelectItem>
+                  </SelectContent>
+                </Select>
+
+
               </div>
-
-              <Select v-model="form.tipe">
-                <SelectTrigger class="w-full">
-                  <SelectValue placeholder="Pilih Tipe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Benefit">Benefit</SelectItem>
-                  <SelectItem value="Cost">Cost</SelectItem>
-                </SelectContent>
-              </Select>
-
-
-            </div>
-            <AlertDialogFooter class="mt-4">
-              <Button type="button" variant="outline" @click="openDialog = false">Batal</Button>
-              <Button type="submit">Simpan</Button>
-            </AlertDialogFooter>
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
+              <AlertDialogFooter class="mt-4">
+                <Button type="button" variant="outline" @click="openDialog = false">Batal</Button>
+                <Button type="submit">Simpan</Button>
+              </AlertDialogFooter>
+            </form>
+          </AlertDialogContent>
+        </AlertDialog>
         <Input
           class="max-w-sm"
           placeholder="Filter nama kriteria..."
@@ -580,7 +583,6 @@ const table = useVueTable({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
       <div class="rounded-md border">
         <Table>
           <TableHeader>
@@ -612,7 +614,6 @@ const table = useVueTable({
           </TableBody>
         </Table>
       </div>
-
       <div class="flex items-center justify-between py-4">
         <div class="text-sm text-muted-foreground">
           {{ table.getFilteredSelectedRowModel().rows.length }} dari
@@ -637,101 +638,107 @@ const table = useVueTable({
           </Button>
         </div>
       </div>
-      <h2 class="text-xl font-bold mb-4">Matriks Keputusan</h2>
-      <div class="rounded-md border">
-      
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nama Siswa</TableHead>
-            <TableHead v-for="k in props.kriteria" :key="k.id">
-              {{ k.nama_kriteria }}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="(row, i) in matrix" :key="i">
-            <TableCell class="font-medium">{{ row.nama }}</TableCell>
-            <TableCell
-              v-for="k in props.kriteria"
-              :key="k.id"
+
+
+      <h2 class="text-xl font-semibold mt-6">Matriks Data Alternatif</h2>
+      <div class="overflow-auto rounded-md border mt-2">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="bg-gray-100 text-left">
+              <th class="p-2 border">Nama Siswa</th>
+              <th
+                v-for="k in props.kriteria"
+                :key="k.id"
+                class="p-2 border"
+              >
+                {{ k.nama_kriteria }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="s in props.siswa"
+              :key="s.id"
+              class="hover:bg-gray-50"
             >
-              {{ row.nilai[k.nama_kriteria] }}
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
-    </div>
-    <Button @click="() => { initJawaban(); openFormJawaban = true }" variant="secondary" class="ml-2">
-      Isi Pertanyaan Kriteria
-    </Button>
+              <td class="p-2 border">{{ s.nama_siswa }}</td>
+              <td
+                v-for="k in props.kriteria"
+                :key="k.id"
+                class="p-2 border text-center"
+              >
+                {{ jawabanMatriks[s.id]?.[k.id] ?? '-' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
+    </div>
     <AlertDialog :open="openFormJawaban" @update:open="openFormJawaban = $event">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Isi Jawaban Siswa</AlertDialogTitle>
-          <AlertDialogDescription>
-            Pilih siswa dan isi jawaban untuk setiap kriteria.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Isi Jawaban Siswa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Pilih siswa dan isi jawaban untuk setiap kriteria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <div class="space-y-4">
-          <!-- Pilih siswa -->
-          <Select v-model="selectedSiswaNama">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="Pilih siswa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="s in siswa"
-                :key="s.nama_siswa"
-                :value="String(s.id)"
-              >
-                {{ s.nama_siswa }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <div class="space-y-4">
+            <!-- Pilih siswa -->
+            <Select v-model="selectedSiswaNama">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Pilih siswa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="s in siswa"
+                  :key="s.nama_siswa"
+                  :value="String(s.id)"
+                >
+                  {{ s.nama_siswa }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
-          <!-- Loop kriteria -->
-          <div v-for="k in props.kriteria" :key="k.id" class="space-y-1">
-            <label class="block font-medium">{{ k.nama_kriteria }}</label>
+            <!-- Loop kriteria -->
+            <div v-for="k in props.kriteria" :key="k.id" class="space-y-1">
+              <label class="block font-medium">{{ k.nama_kriteria }}</label>
 
-            <!-- Jika tipe form select -->
-            <Select
-            v-if="k.tipe_form === 'select'"
-            v-model="jawaban[k.nama_kriteria]"
-          >
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="Pilih jawaban" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="option in parseDropdown(k.pilihan_dropdown)"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </SelectItem>
-
-            </SelectContent>
-          </Select>
-
-            <!-- Jika tipe form input -->
-            <Input
-              v-else
+              <!-- Jika tipe form select -->
+              <Select
+              v-if="k.tipe_form === 'select'"
               v-model="jawaban[k.nama_kriteria]"
-              placeholder="Isi jawaban"
-            />
-          </div>
-        </div>
+            >
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Pilih jawaban" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="option in parseDropdown(k.pilihan_dropdown)"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </SelectItem>
 
-        <AlertDialogFooter class="mt-4">
-          <Button type="button" variant="outline" @click="openFormJawaban = false">Batal</Button>
-          <Button type="button" @click="submitJawaban">Simpan Jawaban</Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
+              </SelectContent>
+            </Select>
+
+              <!-- Jika tipe form input -->
+              <Input
+                v-else
+                v-model="jawaban[k.nama_kriteria]"
+                placeholder="Isi jawaban"
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter class="mt-4">
+            <Button type="button" variant="outline" @click="openFormJawaban = false">Batal</Button>
+            <Button type="button" @click="submitJawaban">Simpan Jawaban</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
     </AlertDialog>
   </AppLayout>
-  
 </template>

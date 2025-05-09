@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Jawaban;
 use App\Models\Siswa;
 use App\Models\Kriteria;
+use DB;
 
 class JawabanController extends Controller
 {
@@ -30,20 +31,35 @@ class JawabanController extends Controller
      */
     public function store(Request $request)
 {
-    // Validasi data (optional tapi sangat direkomendasikan)
     $validated = $request->validate([
-        'siswa_id' => 'exists:siswa,id',
-        'jawaban' => 'array', // Validasi jika jawaban adalah array
-        'jawaban.*.kriteria_id' => 'exists:kriteria,id', // Validasi setiap kriteria_id dalam array jawaban
-        'jawaban.*.nilai' => 'numeric', // Validasi setiap nilai dalam array jawaban
+        'siswa_id' => 'required|exists:siswa,id',
+        'jawaban' => 'required|array',
+        'jawaban.*.kriteria_id' => 'required|exists:kriteria,id',
+        'jawaban.*.nilai' => 'required|numeric',
     ]);
-    
 
-    // Simpan jawaban
-    Jawaban::create($validated);
+    DB::beginTransaction();
+    try {
+        foreach ($validated['jawaban'] as $item) {
+            Jawaban::create([
+                'siswa_id' => $validated['siswa_id'],
+                'kriteria_id' => $item['kriteria_id'],
+                'jawaban' => $item['nilai'], // kolom `jawaban` diisi dari nilai
+            ]);
+        }
 
-    return response()->json(['message' => 'Jawaban disimpan.']);
+        DB::commit();
+        return response()->json(['message' => 'Jawaban berhasil disimpan']);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Gagal menyimpan jawaban',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
 }
+
+
 
     /**
      * Display the specified resource.
