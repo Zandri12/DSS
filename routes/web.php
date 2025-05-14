@@ -4,6 +4,7 @@ use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\SeleksiController;
 use App\Http\Controllers\KriteriaController;
 use App\Http\Controllers\JawabanController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -13,9 +14,7 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth','verified'])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Siswa Routes
     Route::resource('siswa', SiswaController::class);

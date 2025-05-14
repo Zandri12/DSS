@@ -41,6 +41,82 @@ const jawabanArray = props.kriteria.map((kriteria) => ({
   nilai: parseFloat(jawaban[kriteria.nama_kriteria]) || 0,
 }));
 
+// Matriks Normalisasi
+const normalisasiMatriks = computed(() => {
+  const result: Record<number, Record<number, number>> = {}
+  const kriteriaList = props.kriteria
+
+  // Hitung max dan min untuk setiap kriteria
+  const minMaxPerKriteria: Record<number, { min: number, max: number }> = {}
+  kriteriaList.forEach(k => {
+    const nilai = props.jawaban
+      .filter(j => j.kriteria_id === k.id)
+      .map(j => j.jawaban)
+
+    minMaxPerKriteria[k.id] = {
+      min: Math.min(...nilai),
+      max: Math.max(...nilai)
+    }
+  })
+
+  // Normalisasi
+  props.siswa.forEach(s => {
+    result[s.id] = {}
+    kriteriaList.forEach(k => {
+      const jawabanSiswa = jawabanMatriks.value[s.id]?.[k.id] ?? 0
+      const { min, max } = minMaxPerKriteria[k.id]
+      let normalized = 0
+
+      if (max === min) {
+        normalized = 1 // hindari pembagian nol
+      } else {
+        normalized = k.tipe === 'benefit'
+          ? (jawabanSiswa - min) / (max - min)
+          : (max - jawabanSiswa) / (max - min)
+      }
+
+      result[s.id][k.id] = normalized
+    })
+  })
+
+  return result
+})
+
+// Matriks Tertimbang
+const nilaiTertimbang = computed(() => {
+  const result: Record<number, Record<number, number>> = {}
+
+  props.siswa.forEach(s => {
+    result[s.id] = {}
+    props.kriteria.forEach(k => {
+      const bobot = k.bobot
+      const normal = normalisasiMatriks.value[s.id]?.[k.id] ?? 0
+      result[s.id][k.id] = normal * bobot
+    })
+  })
+
+  return result
+})
+
+// Hitung Si dan Ri
+const hasilSiRi = computed(() => {
+  const result: Record<number, { nama: string, Si: number, Ri: number }> = {}
+
+  props.siswa.forEach(s => {
+    const nilai = nilaiTertimbang.value[s.id]
+    const values = Object.values(nilai)
+
+    result[s.id] = {
+      nama: s.nama_siswa,
+      Si: values.reduce((a, b) => a + b, 0),
+      Ri: values.length ? Math.max(...values) : 0
+    }
+  })
+
+  return result
+})
+
+
 
   console.log("Jawaban Array:", jawabanArray); // Cek hasil konversi jawaban
 
@@ -243,20 +319,139 @@ const openEdit = (kriteria: {
 }
 
 
+function getLabelFromDropdown(kriteriaId: number, value: number): string {
+  const kriteria = props.kriteria.find(k => k.id === kriteriaId);
+  const options = normalizeDropdown(kriteria?.pilihan_dropdown);
+  
+  if (!options || !Array.isArray(options)) return value.toString();
+
+  // Jika options belum terparse ke objek dengan label dan value
+  const parsed = options.map(opt => {
+    if (typeof opt === 'string') {
+      try {
+        return JSON.parse(opt); // jika sudah berupa JSON string
+      } catch {
+        return { label: opt, value: opt };
+      }
+    }
+    return opt;
+  });
+
+  const matched = parsed.find(opt => opt.value === value || Number(opt.value) === Number(value));
+  return matched?.label ?? value.toString();
+}
+
+const normalisasiMatriks = computed(() => {
+  const result: Record<number, Record<number, number>> = {}
+  const minMaxPerKriteria: Record<number, { min: number, max: number }> = {}
+
+  // Hitung nilai min dan max per kriteria
+  props.kriteria.forEach(k => {
+    const nilai = props.siswa.map(s => jawabanMatriks.value[s.id]?.[k.id] ?? 0)
+    minMaxPerKriteria[k.id] = {
+      min: Math.min(...nilai),
+      max: Math.max(...nilai)
+    }
+  })
+
+  // Normalisasi nilai siswa per kriteria
+  props.siswa.forEach(s => {
+    result[s.id] = {}
+    props.kriteria.forEach(k => {
+      const { min, max } = minMaxPerKriteria[k.id]
+      const val = jawabanMatriks.value[s.id]?.[k.id] ?? 0
+      let norm = 0
+
+      if (max === min) {
+        norm = 1
+      } else {
+        norm = k.tipe === 'benefit'
+          ? (val - min) / (max - min)
+          : (max - val) / (max - min)
+      }
+
+      result[s.id][k.id] = norm
+    })
+  })
+
+  return result
+})
+
+
+const nilaiTertimbang = computed(() => {
+  const result: Record<number, Record<number, number>> = {}
+
+  props.siswa.forEach(s => {
+    result[s.id] = {}
+    props.kriteria.forEach(k => {
+      const normal = normalisasiMatriks.value[s.id]?.[k.id] ?? 0
+      result[s.id][k.id] = normal * k.bobot
+    })
+  })
+
+  return result
+})
+
+const hasilSiRi = computed(() => {
+  const result: Record<number, { nama: string, Si: number, Ri: number }> = {}
+
+  props.siswa.forEach(s => {
+    const nilai = nilaiTertimbang.value[s.id] ?? {}
+    const values = Object.values(nilai)
+    const total = values.reduce((a, b) => a + b, 0)
+    const max = values.length > 0 ? Math.max(...values) : 0
+
+    result[s.id] = {
+      nama: s.nama_siswa,
+      Si: total,
+      Ri: max
+    }
+  })
+
+  return result
+})
+
+const hasilQRanking = computed(() => {
+  const siswaArray = Object.values(hasilSiRi.value)
+
+  // Ambil nilai minimum dan maksimum
+  const SiValues = siswaArray.map((item) => item.Si)
+  const RiValues = siswaArray.map((item) => item.Ri)
+  const SiMin = Math.min(...SiValues)
+  const SiMax = Math.max(...SiValues)
+  const RiMin = Math.min(...RiValues)
+  const RiMax = Math.max(...RiValues)
+
+  const v = 0.5 // konstanta VIKOR (bisa diganti)
+
+  // Hitung Qi untuk setiap siswa
+  const hasil = siswaArray.map((item) => {
+    const Qi = v * ((item.Si - SiMin) / (SiMax - SiMin || 1)) +
+               (1 - v) * ((item.Ri - RiMin) / (RiMax - RiMin || 1))
+    return {
+      nama: item.nama,
+      Si: item.Si,
+      Ri: item.Ri,
+      Qi,
+    }
+  })
+
+  // Urutkan berdasarkan nilai Qi terkecil (ranking)
+  return hasil.sort((a, b) => a.Qi - b.Qi)
+})
+
+
+
 const jawabanMatriks = computed(() => {
   const matrix: Record<number, Record<number, number>> = {}
-
   props.jawaban.forEach(j => {
     if (!matrix[j.siswa_id]) {
       matrix[j.siswa_id] = {}
     }
     matrix[j.siswa_id][j.kriteria_id] = j.jawaban
   })
-
   return matrix
 })
-
-
 const handleDelete = async (id: number) => {
   const result = await Swal.fire({
     title: 'Yakin mau hapus?',
@@ -310,13 +505,19 @@ const kriteriaFieldMap: Record<string, keyof typeof siswa[0]> = {
 
 // Membentuk nilai matriks dari data siswa dan kriteria
 
+const parsePilihanDropdown = (dropdown: any[]): Array<{ label: string, value: number }> => {
+  return dropdown.map((item, index) => ({
+    label: item,
+    value: 5 - index  // Misalnya 5 untuk yang pertama, 4 untuk yang kedua, dst.
+  }))
+}
 const submitForm = async () => {
   try {
     const formData = {
       ...form.value,
       bobot: parseFloat(rawBobot.value),
       tipe: form.value.tipe.toLowerCase(),
-      pilihan_dropdown: form.value.tipe_form === 'select' ? form.value.pilihan_dropdown : undefined
+       pilihan_dropdown: form.value.pilihan_dropdown ? parsePilihanDropdown(form.value.pilihan_dropdown) : undefined
     };
 
     console.log('Form data:', formData);  // Log form data untuk memastikan
@@ -371,6 +572,76 @@ function parseDropdown(val: string[] | string | undefined): { value: string, lab
     return []
   }
 }
+
+const maxMinJawabanPerKriteria = computed(() => {
+  const grouped: Record<number, number[]> = {}
+
+  props.jawaban.forEach(j => {
+    if (!grouped[j.kriteria_id]) {
+      grouped[j.kriteria_id] = []
+    }
+    grouped[j.kriteria_id].push(j.jawaban)
+  })
+
+  const result = props.kriteria.map(k => {
+    const nilai = grouped[k.id] || []
+    return {
+      nama_kriteria: k.nama_kriteria,
+      max: Math.max(...nilai),
+      min: Math.min(...nilai)
+    }
+  })
+
+  return result
+})
+
+const wijMatrix = computed(() => {
+  const matrix: Record<number, Record<number, number>> = {}
+
+  props.kriteria.forEach(kriteria => {
+    const kriteriaId = kriteria.id
+    const isBenefit = kriteria.tipe.toLowerCase() === 'benefit'
+
+    // Ambil semua nilai jawaban dari matriks yang sudah distuktur
+    const allValues = props.siswa.map(s => {
+      return Number(jawabanMatriks.value[s.id]?.[kriteriaId] ?? 0)
+    })
+
+    const fMax = Math.max(...allValues)
+    const fMin = Math.min(...allValues)
+    const range = fMax - fMin || 1 // Hindari pembagian nol
+
+    props.siswa.forEach(s => {
+      const siswaId = s.id
+      const jawabanSiswa = Number(jawabanMatriks.value[siswaId]?.[kriteriaId] ?? 0)
+
+      if (!matrix[siswaId]) {
+        matrix[siswaId] = {}
+      }
+
+      let wij = 0
+      if (isBenefit) {
+        wij = (jawabanSiswa - fMin) / range
+      } else {
+        wij = (fMax - jawabanSiswa) / range
+      }
+      console.log({
+        siswaId,
+        kriteriaId,
+        jawabanSiswa,
+        fMin,
+        fMax,
+        wij
+      })
+
+      matrix[siswaId][kriteriaId] = parseFloat(wij.toFixed(4))
+    })
+    
+  })
+  
+  return matrix
+})
+
 
 
 
@@ -638,40 +909,186 @@ const table = useVueTable({
           </Button>
         </div>
       </div>
+      <div class="flex gap-4 mt-6">
+      
+        <div class="w-1/2">
+          <h2 class="text-xl font-semibold mb-2">Matriks Data Alternatif (Terstruktur)</h2>
+          <div class="overflow-auto rounded-md border">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="bg-gray-100 text-left">
+                  <th class="p-2 border">Nama Siswa</th>
+                  <th
+                    v-for="k in props.kriteria"
+                    :key="k.id"
+                    class="p-2 border"
+                  >
+                    {{ k.nama_kriteria }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="s in props.siswa"
+                  :key="s.id"
+                  class="hover:bg-gray-50"
+                >
+                  <td class="p-2 border">{{ s.nama_siswa }}</td>
+                  <td
+                    v-for="k in props.kriteria"
+                    :key="k.id"
+                    class="p-2 border text-center"
+                  >
+                    {{ jawabanMatriks[s.id]?.[k.id] ?? '-' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
+        <div class="w-1/2">
+          <h2 class="text-xl font-semibold mb-2">Matriks Data Alternatif (Tidak Terstruktur)</h2>
+          <div class="overflow-auto rounded-md border">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="bg-gray-100 text-left">
+                  <th class="p-2 border">Nama Siswa</th>
+                  <th
+                    v-for="k in props.kriteria"
+                    :key="k.id"
+                    class="p-2 border"
+                  >
+                    {{ k.nama_kriteria }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="s in props.siswa"
+                  :key="s.id"
+                  class="hover:bg-gray-50"
+                >
+                  <td class="p-2 border">{{ s.nama_siswa }}</td>
+                  <td
+                    v-for="k in props.kriteria"
+                    :key="k.id"
+                    class="p-2 border text-center"
+                  >
+                    {{ getLabelFromDropdown(k.id, jawabanMatriks[s.id]?.[k.id] ?? '-') }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="my-6">
+        <h2 class="text-lg font-bold mb-2">Nilai Maksimum dan Minimum per Kriteria</h2>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Kriteria</TableHead>
+              <TableHead>Nilai Maksimum</TableHead>
+              <TableHead>Nilai Minimum</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(item, idx) in maxMinJawabanPerKriteria" :key="idx">
+              <TableCell>{{ item.nama_kriteria }}</TableCell>
+              <TableCell>{{ item.max }}</TableCell>
+              <TableCell>{{ item.min }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+      <h2 class="text-xl font-bold mt-6 mb-2">Tabel Nilai Wij</h2>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nama Siswa</TableHead>
+            <TableHead v-for="k in props.kriteria" :key="k.id">{{ k.nama_kriteria }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="s in props.siswa" :key="s.id">
+            <TableCell>{{ s.nama_siswa }}</TableCell>
+            <TableCell v-for="k in props.kriteria" :key="k.id">
+              {{ wijMatrix[s.id]?.[k.id] ?? '-' }}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+      <h2 class="text-lg font-semibold mb-2">Tabel Nilai Si dan Ri</h2>
+      <Table class="mt-4">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nama Siswa</TableHead>
+            <TableHead>Si</TableHead>
+            <TableHead>Ri</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(hasil, siswaId) in hasilSiRi" :key="siswaId">
+            <TableCell>{{ hasil.nama }}</TableCell>
+            <TableCell>{{ hasil.Si.toFixed(4) }}</TableCell>
+            <TableCell>{{ hasil.Ri.toFixed(4) }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
-      <h2 class="text-xl font-semibold mt-6">Matriks Data Alternatif</h2>
-      <div class="overflow-auto rounded-md border mt-2">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="bg-gray-100 text-left">
-              <th class="p-2 border">Nama Siswa</th>
-              <th
-                v-for="k in props.kriteria"
-                :key="k.id"
-                class="p-2 border"
-              >
-                {{ k.nama_kriteria }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="s in props.siswa"
-              :key="s.id"
-              class="hover:bg-gray-50"
-            >
-              <td class="p-2 border">{{ s.nama_siswa }}</td>
-              <td
-                v-for="k in props.kriteria"
-                :key="k.id"
-                class="p-2 border text-center"
-              >
-                {{ jawabanMatriks[s.id]?.[k.id] ?? '-' }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Keterangan Label -->
+      <div class="mt-4 text-sm text-muted-foreground">
+        <p><strong>Keterangan:</strong></p>
+        <ul class="list-disc list-inside">
+          <li><strong>Si</strong>: jumlah total dari nilai tertimbang per siswa</li>
+          <li><strong>Ri</strong>: nilai maksimum dari bobot kriteria tertimbang per siswa</li>
+        </ul>
+      </div>
+      <h2 class="text-lg font-semibold mb-4">Tabel Nilai Q, Ranking, dan Rekomendasi</h2>
+
+      <Table class="mt-4">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nama Siswa</TableHead>
+            <TableHead>Si</TableHead>
+            <TableHead>Ri</TableHead>
+            <TableHead>Qi</TableHead>
+            <TableHead>Ranking</TableHead>
+            <TableHead>Rekomendasi</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow
+            v-for="(item, index) in hasilQRanking"
+            :key="item.nama"
+          >
+            <TableCell>{{ item.nama }}</TableCell>
+            <TableCell>{{ item.Si.toFixed(4) }}</TableCell>
+            <TableCell>{{ item.Ri.toFixed(4) }}</TableCell>
+            <TableCell>{{ item.Qi.toFixed(4) }}</TableCell>
+            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>
+              <Badge v-if="index === 0" variant="success">Direkomendasikan</Badge>
+              <span v-else>-</span>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+      <!-- Keterangan Lengkap -->
+      <div class="mt-6 text-sm text-muted-foreground space-y-2">
+        <h2 class="text-md font-semibold">Keterangan Perhitungan VIKOR</h2>
+        <ul class="list-disc list-inside">
+          <li><strong>Matriks Data Alternatif (Terstruktur)</strong>: Nilai numerik jawaban siswa terhadap kriteria.</li>
+          <li><strong>Matriks Data Alternatif (Tidak Terstruktur)</strong>: Jawaban siswa dalam bentuk deskriptif (label).</li>
+          <li><strong>Nilai Maksimum dan Minimum</strong>: Digunakan untuk normalisasi sesuai jenis kriteria (Benefit atau Cost).</li>
+          <li><strong>Wij</strong>: Nilai normalisasi tertimbang untuk setiap siswa dan kriteria.</li>
+          <li><strong>Si</strong>: Jumlah total nilai Wij per siswa (indikator performa keseluruhan).</li>
+          <li><strong>Ri</strong>: Nilai maksimum Wij per siswa (indikator kelemahan tertinggi).</li>
+          <li><strong>Qi</strong>: Nilai agregat VIKOR yang mempertimbangkan Si dan Ri (dengan parameter v).</li>
+          <li><strong>Ranking</strong>: Urutan siswa dari terbaik ke terburuk berdasarkan nilai Qi.</li>
+          <li><strong>Rekomendasi</strong>: Alternatif dengan Qi terkecil direkomendasikan untuk dipilih.</li>
+        </ul>
       </div>
 
     </div>
